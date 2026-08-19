@@ -27,7 +27,7 @@ export function formatReminder(value: string) {
 export const minutesSinceMidnight = (date: Date) => date.getHours() * 60 + date.getMinutes();
 
 export const parseReminderMinutes = (value: string) => {
-  const [h, m] = value.split(":").map(Number);
+  const [h = 0, m = 0] = value.split(":").map(Number);
   return h * 60 + m;
 };
 
