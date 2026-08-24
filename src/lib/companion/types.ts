@@ -21,6 +21,13 @@ export interface Task {
   snoozedUntil: number | null;
 }
 
+export interface Habit {
+  id: string;
+  title: string;
+  intervalMinutes: number;
+  enabled: boolean;
+}
+
 export interface CompanionSettings {
   userName: string;
   remindersEnabled: boolean;
@@ -29,6 +36,7 @@ export interface CompanionSettings {
   breakIntervalMinutes: number;
   windDownHour: number;
   soundEnabled: boolean;
+  habits: Habit[];
 }
 
 export interface SpeechMessage {
@@ -45,4 +53,8 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   breakIntervalMinutes: 45,
   windDownHour: 22,
   soundEnabled: false,
+  habits: [
+    { id: "habit-water", title: "Drink Water 💧", intervalMinutes: 60, enabled: true },
+    { id: "habit-stretch", title: "Stretch & Fix Posture 🧘‍♀️", intervalMinutes: 45, enabled: true },
+  ],
 };

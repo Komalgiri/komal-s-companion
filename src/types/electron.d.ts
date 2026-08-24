@@ -1,6 +1,7 @@
 export interface ElectronAPI {
   showOverlay: () => void;
   hideOverlay: () => void;
+  restoreMainWindow: () => void;
   taskCompleted: () => void;
   taskSnoozed: () => void;
   onTaskCompletedFromOverlay: (callback: () => void) => void;

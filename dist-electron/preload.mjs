@@ -3,6 +3,7 @@ let electron = require("electron");
 electron.contextBridge.exposeInMainWorld("electronAPI", {
 	showOverlay: () => electron.ipcRenderer.send("show-overlay"),
 	hideOverlay: () => electron.ipcRenderer.send("hide-overlay"),
+	restoreMainWindow: () => electron.ipcRenderer.send("restore-main-window"),
 	taskCompleted: () => electron.ipcRenderer.send("overlay-task-completed"),
 	taskSnoozed: () => electron.ipcRenderer.send("overlay-task-snoozed"),
 	onTaskCompletedFromOverlay: (callback) => {

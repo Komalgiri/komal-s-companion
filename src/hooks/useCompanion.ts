@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useWeather } from "@/hooks/useWeather";
 import {
   breakMessage,
   completedMessage,
@@ -7,6 +8,8 @@ import {
   remainingMessage,
   snoozeMessage,
   staleMessage,
+  habitMessage,
+  weatherGreeting,
 } from "@/lib/companion/messages";
 import { daysBetween, minutesSinceMidnight, parseReminderMinutes } from "@/lib/companion/time";
 import type { AvatarState, CompanionSettings, SpeechMessage, Task } from "@/lib/companion/types";
@@ -16,18 +19,21 @@ interface UseCompanionArgs {
   tasks: Task[];
   settings: CompanionSettings;
   remaining: number;
+  isFocusing?: boolean;
 }
 
 /**
  * Drives the avatar state machine, the speech bubble queue and the reminder
  * scheduler. Kept UI-free so an Electron main process can reuse the logic.
  */
-export function useCompanion({ now, tasks, settings, remaining }: UseCompanionArgs) {
+export function useCompanion({ now, tasks, settings, remaining, isFocusing }: UseCompanionArgs) {
+  const { weather, loading } = useWeather();
   const [message, setMessage] = useState<SpeechMessage | null>(null);
   const [transientState, setTransientState] = useState<AvatarState | null>(null);
   const [dueTask, setDueTask] = useState<Task | null>(null);
   const firedRef = useRef<Set<string>>(new Set());
   const lastBreakRef = useRef<number>(Date.now());
+  const lastHabitFiredRef = useRef<Record<string, number>>({});
   const greetedRef = useRef(false);
   const resetRef = useRef<number | null>(null);
 
@@ -40,12 +46,12 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
 
   // Greeting on first tick.
   useEffect(() => {
-    if (!now || greetedRef.current) return;
+    if (!now || greetedRef.current || loading) return;
     greetedRef.current = true;
-    say(greeting(settings.userName, now.getHours()));
+    say(weatherGreeting(settings.userName, now.getHours(), weather));
     const id = window.setTimeout(() => say(remainingMessage(remaining)), 6500);
     return () => window.clearTimeout(id);
-  }, [now, settings.userName, remaining, say]);
+  }, [now, settings.userName, remaining, say, weather, loading]);
 
   const [randomIdle, setRandomIdle] = useState<AvatarState>("idle");
 
@@ -53,7 +59,7 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
   useEffect(() => {
     const interval = window.setInterval(() => {
       const states: AvatarState[] = ["idle", "thinking", "walking", "happy", "idle", "idle"];
-      setRandomIdle(states[Math.floor(Math.random() * states.length)]);
+      setRandomIdle(states[Math.floor(Math.random() * states.length)] ?? "idle");
     }, 12000); // change every 12 seconds
     return () => window.clearInterval(interval);
   }, []);
@@ -85,16 +91,36 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
       }
     }
 
+    // Check habits
+    if (settings.habits && settings.habits.length > 0) {
+      for (const habit of settings.habits) {
+        if (!habit.enabled || habit.intervalMinutes <= 0) continue;
+        
+        // Initialize to now so it doesn't fire immediately
+        if (!(habit.id in lastHabitFiredRef.current)) {
+          lastHabitFiredRef.current[habit.id] = Date.now();
+        }
+
+        const lastFired = lastHabitFiredRef.current[habit.id]!;
+        if (Date.now() - lastFired > habit.intervalMinutes * 60_000) {
+          lastHabitFiredRef.current[habit.id] = Date.now();
+          say(habitMessage(habit.title), 8000);
+          return;
+        }
+      }
+    }
+
     const interval = settings.breakIntervalMinutes;
     if (interval > 0 && Date.now() - lastBreakRef.current > interval * 60_000) {
       lastBreakRef.current = Date.now();
       const stale = tasks.find((t) => !t.done && daysBetween(t.createdAt, Date.now()) >= 3);
       say(stale ? staleMessage(stale, daysBetween(stale.createdAt, Date.now())) : breakMessage());
     }
-  }, [now, tasks, settings.remindersEnabled, settings.breakIntervalMinutes, dueTask, say]);
+  }, [now, tasks, settings.remindersEnabled, settings.breakIntervalMinutes, settings.habits, dueTask, say]);
 
   const baseState: AvatarState = (() => {
     if (!now) return "idle";
+    if (isFocusing) return "thinking";
     const hour = now.getHours();
     if (hour >= settings.windDownHour || hour < 5) return "sleeping";
     if (remaining === 0 && tasks.length > 0) return "celebration";

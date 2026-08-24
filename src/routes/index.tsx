@@ -10,8 +10,11 @@ import { SpeechBubble } from "@/components/companion/SpeechBubble";
 import { StatsRow } from "@/components/companion/StatsRow";
 import { TodoList } from "@/components/companion/TodoList";
 import { TrayMode } from "@/components/companion/TrayMode";
+import { PomodoroTimer } from "@/components/companion/PomodoroTimer";
+import { LofiPlayer } from "@/components/companion/LofiPlayer";
 import { useClock } from "@/hooks/useClock";
 import { useCompanion } from "@/hooks/useCompanion";
+import { usePomodoro } from "@/hooks/usePomodoro";
 import { useSettings } from "@/hooks/useSettings";
 import { useTasks } from "@/hooks/useTasks";
 import { daysBetween } from "@/lib/companion/time";
@@ -50,9 +53,20 @@ function TinyKomal() {
     snoozeTask,
     clearCompleted,
   } = useTasks();
-  const companion = useCompanion({ now, tasks, settings, remaining: stats.remaining });
+  
+  const pomodoro = usePomodoro();
+  
+  const companion = useCompanion({ 
+    now, 
+    tasks, 
+    settings, 
+    remaining: stats.remaining,
+    isFocusing: pomodoro.phase === "focus" 
+  });
+  
   const [trayMode, setTrayMode] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showPomodoro, setShowPomodoro] = useState(false);
 
   const handleToggle = (id: string) => {
     const becameDone = toggleTask(id);
@@ -73,14 +87,18 @@ function TinyKomal() {
   const oldestDays = stats.oldestPendingAt ? daysBetween(stats.oldestPendingAt, Date.now()) : 0;
 
   useEffect(() => {
-    if (companion.dueTask && window.electronAPI) {
+    if ((companion.dueTask || pomodoro.isRunning) && window.electronAPI) {
       window.electronAPI.showOverlay();
     }
-  }, [companion.dueTask]);
+  }, [companion.dueTask, pomodoro.isRunning]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-8">
+    <main className="relative flex min-h-screen items-center justify-center bg-background p-4 sm:p-8">
       <h1 className="sr-only">Tiny Komal — desktop productivity companion</h1>
+
+      <div className="absolute top-4 left-4 z-50">
+        <LofiPlayer />
+      </div>
 
       {trayMode ? (
         <TrayMode
@@ -134,8 +152,24 @@ function TinyKomal() {
               className="absolute inset-x-4 bottom-20 top-1/3"
             />
 
-            <div className="absolute inset-x-4 bottom-4">
-              <div className="soft-card rounded-3xl px-4 py-3">
+            <div className="absolute inset-x-4 bottom-4 flex flex-col gap-2">
+              {showPomodoro && (
+                <div className="soft-card rounded-3xl px-4 py-3 animate-in fade-in slide-in-from-bottom-2">
+                  <PomodoroTimer
+                    phase={pomodoro.phase}
+                    isRunning={pomodoro.isRunning}
+                    timeLeft={pomodoro.timeLeft}
+                    sessionCount={pomodoro.sessionCount}
+                    onToggle={pomodoro.toggleTimer}
+                    onStop={() => { pomodoro.stopTimer(); setShowPomodoro(false); }}
+                    onSkip={pomodoro.skipPhase}
+                  />
+                </div>
+              )}
+              <div 
+                className="soft-card rounded-3xl px-4 py-3 cursor-pointer hover:bg-card/80 transition-colors"
+                onClick={() => setShowPomodoro((v) => !v)}
+              >
                 <Clock now={now} remaining={stats.remaining} />
               </div>
             </div>

@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { Maximize2 } from "lucide-react";
 import { Avatar } from "@/components/companion/Avatar";
 import { SpeechBubble } from "@/components/companion/SpeechBubble";
+import { PomodoroTimer } from "@/components/companion/PomodoroTimer";
+import { usePomodoro } from "@/hooks/usePomodoro";
 import { useTasks } from "@/hooks/useTasks";
 import { useClock } from "@/hooks/useClock";
 import { useCompanion } from "@/hooks/useCompanion";
@@ -26,7 +29,16 @@ function OverlayComponent() {
   const { tasks, toggleTask, snoozeTask } = useTasks();
   const now = useClock();
   const { settings } = useSettings();
-  const companion = useCompanion({ now, tasks, settings, remaining: tasks.filter(t => !t.done).length });
+  
+  const pomodoro = usePomodoro({ ...settings, syncMode: 'slave' } as any);
+  
+  const companion = useCompanion({ 
+    now, 
+    tasks, 
+    settings, 
+    remaining: tasks.filter(t => !t.done).length,
+    isFocusing: pomodoro.phase === "focus" 
+  });
   
   const [message, setMessage] = useState<SpeechMessage | null>(null);
 
@@ -40,11 +52,16 @@ function OverlayComponent() {
       });
     } else {
       setMessage(null);
-      if (window.electronAPI) {
-        window.electronAPI.hideOverlay();
-      }
     }
   }, [companion.dueTask]);
+
+  useEffect(() => {
+    if ((companion.dueTask || pomodoro.isRunning) && window.electronAPI) {
+      // Don't show inactive if we want to steal focus, but here we just show overlay
+    } else if (!companion.dueTask && !pomodoro.isRunning && window.electronAPI) {
+      window.electronAPI.hideOverlay();
+    }
+  }, [companion.dueTask, pomodoro.isRunning]);
 
   const handleDone = () => {
     if (companion.dueTask) {
@@ -64,12 +81,12 @@ function OverlayComponent() {
     }
   };
 
-  // The entire window is transparent, we only render the avatar and bubble
+  // The entire window is transparent, main has drag
   return (
     <main className="flex h-screen w-screen flex-col items-center justify-end overflow-hidden bg-transparent pb-4" style={{ WebkitAppRegion: 'drag' } as any}>
-      <div style={{ WebkitAppRegion: 'no-drag' } as any} className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-4">
         {message && (
-          <div className="relative">
+          <div style={{ WebkitAppRegion: 'no-drag' } as any} className="relative">
             <SpeechBubble
               message={message}
               onDismiss={handleNotYet}
@@ -90,7 +107,33 @@ function OverlayComponent() {
             </div>
           </div>
         )}
-        <Avatar state={companion.avatarState} className="h-48 w-48" />
+        
+        {pomodoro.phase !== "idle" && !companion.dueTask && (
+          <div style={{ WebkitAppRegion: 'no-drag' } as any} className="soft-card rounded-3xl px-3 py-2 w-36 mb-2">
+            <PomodoroTimer
+              compact
+              phase={pomodoro.phase}
+              isRunning={pomodoro.isRunning}
+              timeLeft={pomodoro.timeLeft}
+              sessionCount={pomodoro.sessionCount}
+              onToggle={pomodoro.toggleTimer}
+              onStop={pomodoro.stopTimer}
+              onSkip={pomodoro.skipPhase}
+            />
+          </div>
+        )}
+
+        <div className="relative group cursor-move">
+          <Avatar state={companion.avatarState} className="h-32 w-32" />
+          <button 
+            onClick={() => window.electronAPI?.restoreMainWindow()}
+            style={{ WebkitAppRegion: 'no-drag' } as any}
+            className="absolute top-0 right-0 p-1.5 bg-card text-card-foreground shadow-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 active:scale-95"
+            aria-label="Restore main window"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </main>
   );

@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electronAPI', {
   showOverlay: () => ipcRenderer.send('show-overlay'),
   hideOverlay: () => ipcRenderer.send('hide-overlay'),
+  restoreMainWindow: () => ipcRenderer.send('restore-main-window'),
   taskCompleted: () => ipcRenderer.send('overlay-task-completed'),
   taskSnoozed: () => ipcRenderer.send('overlay-task-snoozed'),
   onTaskCompletedFromOverlay: (callback: () => void) => {

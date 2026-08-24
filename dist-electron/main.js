@@ -1,10 +1,12 @@
-import { BrowserWindow, app, ipcMain, screen } from "electron";
+import { BrowserWindow, Menu, Tray, app, ipcMain, screen } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 //#region electron/main.ts
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 var mainWindow = null;
 var overlayWindow = null;
+var tray = null;
+var isQuitting = false;
 var VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 function createMainWindow() {
 	mainWindow = new BrowserWindow({
@@ -18,9 +20,44 @@ function createMainWindow() {
 	});
 	if (VITE_DEV_SERVER_URL) mainWindow.loadURL(VITE_DEV_SERVER_URL);
 	else mainWindow.loadFile(path.join(__dirname, "../dist/client/index.html"));
+	mainWindow.on("close", (event) => {
+		if (!isQuitting) {
+			event.preventDefault();
+			mainWindow?.hide();
+		}
+	});
 	mainWindow.on("closed", () => {
 		mainWindow = null;
 		if (overlayWindow) overlayWindow.close();
+	});
+}
+function createTray() {
+	const iconPath = path.join(__dirname, "../public/favicon.ico");
+	tray = new Tray(iconPath);
+	const contextMenu = Menu.buildFromTemplate([
+		{
+			label: "Show Tiny Komal",
+			click: () => {
+				if (mainWindow) mainWindow.show();
+				else createMainWindow();
+			}
+		},
+		{ type: "separator" },
+		{
+			label: "Quit",
+			click: () => {
+				isQuitting = true;
+				app.quit();
+			}
+		}
+	]);
+	tray.setToolTip("Tiny Komal");
+	tray.setContextMenu(contextMenu);
+	tray.on("click", () => {
+		if (mainWindow) {
+			if (mainWindow.isVisible()) mainWindow.hide();
+			else mainWindow.show();
+		}
 	});
 }
 function createOverlayWindow() {
@@ -52,6 +89,7 @@ function createOverlayWindow() {
 app.whenReady().then(() => {
 	createMainWindow();
 	createOverlayWindow();
+	createTray();
 	app.on("activate", () => {
 		if (BrowserWindow.getAllWindows().length === 0) {
 			createMainWindow();
@@ -60,7 +98,14 @@ app.whenReady().then(() => {
 	});
 });
 app.on("window-all-closed", () => {
-	if (process.platform !== "darwin") app.quit();
+	if (process.platform !== "darwin" && isQuitting) app.quit();
+});
+ipcMain.on("restore-main-window", () => {
+	if (mainWindow) {
+		mainWindow.show();
+		if (mainWindow.isMinimized()) mainWindow.restore();
+		mainWindow.focus();
+	} else createMainWindow();
 });
 ipcMain.on("show-overlay", () => {
 	if (overlayWindow) {

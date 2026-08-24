@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, Tray, Menu } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -6,6 +6,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
@@ -28,10 +30,56 @@ function createMainWindow() {
 
   // When main window loses focus, maybe we want to trigger the overlay?
   // But we let the React app handle this logic and tell us via IPC.
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
     if (overlayWindow) {
       overlayWindow.close();
+    }
+  });
+}
+
+function createTray() {
+  const iconPath = path.join(__dirname, '../public/favicon.ico');
+  tray = new Tray(iconPath);
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Show Tiny Komal',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+        } else {
+          createMainWindow();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('Tiny Komal');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+      }
     }
   });
 }
@@ -73,6 +121,7 @@ function createOverlayWindow() {
 app.whenReady().then(() => {
   createMainWindow();
   createOverlayWindow();
+  createTray();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -83,12 +132,22 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (process.platform !== 'darwin' && isQuitting) {
     app.quit();
   }
 });
 
 // IPC handlers
+ipcMain.on('restore-main-window', () => {
+  if (mainWindow) {
+    mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  } else {
+    createMainWindow();
+  }
+});
+
 ipcMain.on('show-overlay', () => {
   if (overlayWindow) {
     // Make sure it can receive mouse events when it's showing interactive elements

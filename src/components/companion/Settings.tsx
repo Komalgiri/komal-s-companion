@@ -1,5 +1,5 @@
-import { X } from "lucide-react";
-import type { CompanionSettings } from "@/lib/companion/types";
+import { X, Plus, Trash2 } from "lucide-react";
+import type { CompanionSettings, Habit } from "@/lib/companion/types";
 
 interface SettingsProps {
   open: boolean;
@@ -43,6 +43,21 @@ const selectClass =
 
 export function Settings({ open, settings, onUpdate, onClose, onClearCompleted }: SettingsProps) {
   if (!open) return null;
+
+  const addHabit = () => {
+    onUpdate("habits", [
+      ...(settings.habits || []),
+      { id: `habit-${Date.now()}`, title: "New Habit", intervalMinutes: 60, enabled: true },
+    ]);
+  };
+
+  const updateHabit = (id: string, updates: Partial<Habit>) => {
+    onUpdate("habits", (settings.habits || []).map(h => h.id === id ? { ...h, ...updates } : h));
+  };
+
+  const removeHabit = (id: string) => {
+    onUpdate("habits", (settings.habits || []).filter(h => h.id !== id));
+  };
 
   return (
     <div className="animate-bubble-in absolute inset-x-3 bottom-3 top-3 z-40 overflow-y-auto rounded-3xl bg-card/95 p-4 backdrop-blur-md">
@@ -132,6 +147,68 @@ export function Settings({ open, settings, onUpdate, onClose, onClearCompleted }
             Clear
           </button>
         </Row>
+      </div>
+
+      <div className="mt-4 border-t border-border pt-4">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 mb-2">
+          <div>
+            <h2 className="truncate text-base font-bold">Habits</h2>
+            <p className="truncate text-xs font-semibold text-muted-foreground">Custom recurring reminders</p>
+          </div>
+          <button
+            type="button"
+            onClick={addHabit}
+            aria-label="Add habit"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary hover:bg-primary/20"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </header>
+
+        <div className="divide-y divide-border">
+          {(settings.habits || []).map((habit) => (
+            <div key={habit.id} className="py-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <input
+                  value={habit.title}
+                  onChange={(e) => updateHabit(habit.id, { title: e.target.value })}
+                  aria-label="Habit title"
+                  className="w-full rounded-xl bg-muted px-2 py-1.5 text-sm font-bold outline-none focus:ring-2 focus:ring-ring"
+                />
+                <Toggle
+                  label="Enable habit"
+                  checked={habit.enabled}
+                  onChange={(v) => updateHabit(habit.id, { enabled: v })}
+                />
+              </div>
+              <div className="flex justify-between items-center px-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-semibold">Every</span>
+                  <select
+                    value={habit.intervalMinutes}
+                    onChange={(e) => updateHabit(habit.id, { intervalMinutes: Number(e.target.value) })}
+                    aria-label="Habit interval"
+                    className={selectClass}
+                  >
+                    {[15, 30, 45, 60, 90, 120].map((m) => (
+                      <option key={m} value={m}>
+                        {m} min
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeHabit(habit.id)}
+                  aria-label="Remove habit"
+                  className="p-1.5 text-muted-foreground hover:text-destructive rounded-full hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -15,6 +15,40 @@ export function greeting(name: string, hour: number): SpeechMessage {
   return makeMessage("It's getting late. Time to wind down. 🌙", "calm", "sleeping");
 }
 
+export function weatherGreeting(name: string, hour: number, weather: import("@/hooks/useWeather").WeatherData | null): SpeechMessage {
+  if (!weather) return greeting(name, hour);
+
+  // Night time overrides weather
+  if (hour < 5 || hour >= 21) return greeting(name, hour);
+  
+  const timeOfDay = hour < 12 ? "Good morning" : "Good afternoon";
+
+  if (weather.condition === "rain") {
+    return makeMessage(`Looks like rain outside! Stay cozy, ${name}. 🌧️`, "info", "thinking");
+  }
+  if (weather.condition === "snow") {
+    return makeMessage(`It's snowing! Hope you have a warm drink, ${name}. ❄️`, "cheer", "happy");
+  }
+  if (weather.condition === "storm") {
+    return makeMessage(`Stormy weather outside! Stay safe, ${name}. ⚡`, "warn", "thinking");
+  }
+  if (weather.isCold) {
+    return makeMessage(`It's pretty cold out there! Bundle up, ${name}. 🧣`, "info", "idle");
+  }
+  if (weather.isHot) {
+    return makeMessage(`It's quite hot today! Stay hydrated, ${name}. 🥤`, "warn", "happy");
+  }
+  if (weather.condition === "sunny") {
+    return makeMessage(`${timeOfDay}! It's a beautiful sunny day, ${name}. ☀️`, "cheer", "happy");
+  }
+  if (weather.condition === "fog") {
+    return makeMessage(`${timeOfDay}, ${name}. It's a bit foggy outside! 🌫️`, "info", "idle");
+  }
+
+  // Fallback if it's just cloudy or unknown but not extreme temps
+  return greeting(name, hour);
+}
+
 export function remainingMessage(count: number): SpeechMessage {
   if (count === 0) return makeMessage("All done for today! 🎉", "cheer", "celebration");
   return makeMessage(
@@ -43,3 +77,6 @@ export const reminderMessage = (task: Task) =>
 
 export const snoozeMessage = (minutes: number) =>
   makeMessage(`Okay, I'll nudge you again in ${minutes} min 😴`, "calm", "idle");
+
+export const habitMessage = (habitTitle: string) =>
+  makeMessage(`Time to: ${habitTitle} ✨`, "info", "happy");
