@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Minimize2, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { Avatar } from "@/components/companion/Avatar";
@@ -71,6 +71,12 @@ function TinyKomal() {
   };
 
   const oldestDays = stats.oldestPendingAt ? daysBetween(stats.oldestPendingAt, Date.now()) : 0;
+
+  useEffect(() => {
+    if (companion.dueTask && window.electronAPI) {
+      window.electronAPI.showOverlay();
+    }
+  }, [companion.dueTask]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-8">

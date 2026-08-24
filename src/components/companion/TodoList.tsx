@@ -76,7 +76,8 @@ export function TodoList({ tasks, onAdd, onToggle, onRemove, onSnooze, className
             />
           </label>
           <button
-            type="submit"
+            type="button"
+            onClick={submit}
             aria-label="Add task"
             className="grid h-9 w-9 place-items-center rounded-2xl bg-primary text-primary-foreground transition-transform hover:scale-105 active:scale-95"
           >

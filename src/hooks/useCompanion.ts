@@ -47,6 +47,17 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
     return () => window.clearTimeout(id);
   }, [now, settings.userName, remaining, say]);
 
+  const [randomIdle, setRandomIdle] = useState<AvatarState>("idle");
+
+  // Random idle gestures
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      const states: AvatarState[] = ["idle", "thinking", "walking", "happy", "idle", "idle"];
+      setRandomIdle(states[Math.floor(Math.random() * states.length)]);
+    }, 12000); // change every 12 seconds
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Reminder scheduler + stale-task and break nudges.
   useEffect(() => {
     if (!now) return;
@@ -54,13 +65,19 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
     const stamp = now.toDateString();
 
     if (settings.remindersEnabled && !dueTask) {
-      const due = tasks.find((task) => {
+      const dueTasks = tasks.filter((task) => {
         if (task.done || !task.reminderAt) return false;
         if (task.snoozedUntil && task.snoozedUntil > Date.now()) return false;
         if (firedRef.current.has(`${stamp}:${task.id}:${task.snoozedUntil ?? 0}`)) return false;
         return parseReminderMinutes(task.reminderAt) <= nowMinutes;
       });
-      if (due) {
+
+      if (dueTasks.length > 0) {
+        // Find the task that is closest to now (most recently due)
+        const due = dueTasks.reduce((latest, current) => {
+          return parseReminderMinutes(current.reminderAt!) > parseReminderMinutes(latest.reminderAt!) ? current : latest;
+        });
+        
         firedRef.current.add(`${stamp}:${due.id}:${due.snoozedUntil ?? 0}`);
         setDueTask(due);
         say(reminderMessage(due), 8000);
@@ -82,7 +99,7 @@ export function useCompanion({ now, tasks, settings, remaining }: UseCompanionAr
     if (hour >= settings.windDownHour || hour < 5) return "sleeping";
     if (remaining === 0 && tasks.length > 0) return "celebration";
     if (tasks.some((t) => !t.done && daysBetween(t.createdAt, Date.now()) >= 3)) return "sad";
-    return "idle";
+    return randomIdle;
   })();
 
   const announceCompletion = useCallback(

@@ -14,11 +14,15 @@ export function useTasks() {
   useEffect(() => {
     setTasks(loadTasks());
     setHydrated(true);
-  }, []);
 
-  useEffect(() => {
-    if (hydrated) saveTasks(tasks);
-  }, [tasks, hydrated]);
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'tiny-komal:tasks:v1') {
+        setTasks(loadTasks());
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const addTask = useCallback(({ title, reminderAt }: NewTaskInput) => {
     const task: Task = {
@@ -30,14 +34,18 @@ export function useTasks() {
       completedAt: null,
       snoozedUntil: null,
     };
-    setTasks((prev) => [task, ...prev]);
+    setTasks((prev) => {
+      const next = [task, ...prev];
+      saveTasks(next);
+      return next;
+    });
     return task;
   }, []);
 
   const toggleTask = useCallback((id: string) => {
     let becameDone = false;
-    setTasks((prev) =>
-      prev.map((task) => {
+    setTasks((prev) => {
+      const next = prev.map((task) => {
         if (task.id !== id) return task;
         becameDone = !task.done;
         return {
@@ -45,31 +53,45 @@ export function useTasks() {
           done: becameDone,
           completedAt: becameDone ? Date.now() : null,
         };
-      }),
-    );
+      });
+      saveTasks(next);
+      return next;
+    });
     return becameDone;
   }, []);
 
   const removeTask = useCallback((id: string) => {
-    setTasks((prev) => prev.filter((task) => task.id !== id));
+    setTasks((prev) => {
+      const next = prev.filter((task) => task.id !== id);
+      saveTasks(next);
+      return next;
+    });
   }, []);
 
   const snoozeTask = useCallback((id: string, minutes: number) => {
-    setTasks((prev) =>
-      prev.map((task) =>
+    setTasks((prev) => {
+      const next = prev.map((task) =>
         task.id === id ? { ...task, snoozedUntil: Date.now() + minutes * 60_000 } : task,
-      ),
-    );
+      );
+      saveTasks(next);
+      return next;
+    });
   }, []);
 
   const setReminder = useCallback((id: string, reminderAt: string | null) => {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === id ? { ...task, reminderAt, snoozedUntil: null } : task)),
-    );
+    setTasks((prev) => {
+      const next = prev.map((task) => (task.id === id ? { ...task, reminderAt, snoozedUntil: null } : task));
+      saveTasks(next);
+      return next;
+    });
   }, []);
 
   const clearCompleted = useCallback(() => {
-    setTasks((prev) => prev.filter((task) => !task.done));
+    setTasks((prev) => {
+      const next = prev.filter((task) => !task.done);
+      saveTasks(next);
+      return next;
+    });
   }, []);
 
   const stats = useMemo(() => {
