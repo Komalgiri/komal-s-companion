@@ -171,7 +171,7 @@ Tiny Komal separates the desktop native capabilities (Electron Process) from the
 
 ```mermaid
 flowchart TD
-    subgraph Electron Main Process
+    subgraph ElectronMainProcess [Electron Main Process]
         Main[Main Process - Window Management & OS Integration]
         Tray[System Tray]
         Overlay[Floating Overlay Window]
@@ -180,11 +180,11 @@ flowchart TD
         Main <--> Overlay
     end
 
-    subgraph Preload Bridge
+    subgraph PreloadBridge [Preload Bridge]
         Preload[Context Bridge API]
     end
 
-    subgraph React Renderer
+    subgraph ReactRenderer [React Renderer]
         UI[UI Components]
         Hooks[State Hooks: useTasks, usePomodoro, useCompanion]
         Store[Local Storage / State Management]
@@ -194,7 +194,7 @@ flowchart TD
     end
 
     Main <-->|IPC Channels| Preload
-    Preload <-->|Secure Expose API| React Renderer
+    Preload <-->|Secure Expose API| ReactRenderer
 ```
 
 ### 1. Electron Main Process
